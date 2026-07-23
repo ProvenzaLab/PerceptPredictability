@@ -6,7 +6,11 @@ import pandas as pd
 import seaborn as sns # type: ignore
 from datetime import timedelta, datetime, date, timezone
 from statsmodels.tsa.stattools import acf
+import statsmodels.formula.api as smf
+from statsmodels.stats.multitest import multipletests
 from scipy import stats
+
+import re
 
 epoch=date(1970, 1, 1)
 epoch_dt=datetime.combine(epoch, datetime.min.time())
@@ -214,3 +218,44 @@ def plot_box_and_swarmplot(x, ys, ax, color=None, boxcolor=None, swarmcolor=None
         zorder=7
     )
     return ax
+
+def run_mixedlm(mlm_df, correction=True, verbose=False):
+    model = smf.mixedlm(
+        formula="power ~ response_status * time_bin",
+        data=mlm_df,
+        groups=mlm_df['pt_id']
+    )
+    result = model.fit(method="powell", reml=False)
+
+    if verbose:
+        print(f'MLM results:\n{result.summary()}')
+
+    # Gather model results
+    params = result.params
+    pvalues = result.pvalues
+    conf_int = result.conf_int()
+    df_index = params.index.values
+    groups = [t + ':time_bin[T.00:00:00]' if t == 'group[T.responder]' else t for t in df_index]
+
+    # Create summary dataframe
+    summary_df = pd.DataFrame({
+        'coefficient': params,
+        'pvalue': pvalues,
+        'ci_lower': conf_int[0],
+        'ci_upper': conf_int[1],
+        'time_bins': groups
+    })
+
+    interaction_terms = summary_df[summary_df.index.str.contains('response_status[T.Responder]*')]
+
+    # Apply multiple comparisons correction to p values
+    if correction:
+        _, interaction_terms['pvalue'], _, _ = multipletests(interaction_terms['pvalue'], method='fdr_bh')
+
+    def clean_label(col):
+        m = re.search(r'time_bin\[T\.(\d+):00-(\d+):00\]', col)
+        return (int(m.group(1)), int(m.group(2))) if m else (0, 6)
+
+    interaction_terms['time_bins'] = [clean_label(c) for c in interaction_terms['time_bins']]
+
+    return summary_df, interaction_terms
