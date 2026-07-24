@@ -122,7 +122,7 @@ def select_significant_lags_kfold(df, lag_features, target_col, n_splits=5, p_th
 
 
 def select_lags_full_pipeline(df, lag_features, target_col, n_splits=5, p_thresh=0.05,
-                               fold_threshold=3, max_iter=20, verbose=True):
+                               fold_threshold=3, max_iter=20, verbose=False):
     df = df.dropna(subset=lag_features + [target_col]).copy()
     candidates = list(lag_features)
 

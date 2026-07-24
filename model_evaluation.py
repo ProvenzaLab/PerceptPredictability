@@ -407,3 +407,10 @@ def plot_model_metrics(df, get_model_feature, window_widths,
     )
 
     return boxplot_axs, roc_ax, conf_mat_axs
+
+def delta_model(df, features):
+    for id in df['pt_id'].unique():
+        preDBS = df.query('pt_id == @id and days_since_dbs < 0')
+        for f in features:
+            df.loc[df['pt_id'] == id, f'delta_{f}'] = df[f] - np.nanmean(preDBS[f])
+    return df
