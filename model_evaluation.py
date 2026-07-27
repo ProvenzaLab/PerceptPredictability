@@ -32,6 +32,7 @@ def leave_one_patient_out_logistic_regression(
     violin_fig: plt.Figure = None,
     violin_ax: plt.Axes = None,
     colors: list = None,
+    shuffle: bool = False
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
     Perform leave-one-patient-out cross-validation with logistic regression.
@@ -46,7 +47,7 @@ def leave_one_patient_out_logistic_regression(
         violin_fig (plt.Figure): Figure object for plotting violin plot of predictions.
         violin_ax (plt.Axes): Axes object for plotting violin plot of predictions.
         colors (list): List of colors for plotting.
-        include_predbs_in_test (bool): Whether to include Pre-DBS data in the test set.
+        shuffle (bool): Whether to shuffle symptom state labels.
 
     Returns:
         Tuple[Dict[str, Any], Dict[str, Any]]: Overall results and patient-specific results.
@@ -68,6 +69,9 @@ def leave_one_patient_out_logistic_regression(
     df = df.loc[~df["state_label_str"].isin(bad_labels)].copy()
     df['label'] = df['state_label_str'].map(label_map)
     df = df.dropna(subset=['label']).copy()
+
+    if shuffle:
+        df['label'] = df['label'].sample(frac=1).values
 
     logo = LeaveOneGroupOut()
     groups = df["pt_id"].values
@@ -170,7 +174,7 @@ def leave_one_patient_out_logistic_regression(
         weighted_auc_score = np.nan
         balanced_acc = np.nan
         weighted_balanced_acc = np.nan
-        fpr = tpr = weighted_fpr = weighted_tpr = np.array([])
+        overall_tpr = overall_tnr = fpr = tpr = weighted_fpr = weighted_tpr = np.array([])
     else:
         conf_matrix = confusion_matrix(all_y_true, all_y_pred, labels=[0, 1])
         weighted_conf_matrix = confusion_matrix(
@@ -199,6 +203,10 @@ def leave_one_patient_out_logistic_regression(
             )
         else:
             fpr = tpr = weighted_fpr = weighted_tpr = np.array([])
+
+        tn, fp, fn, tp = conf_matrix.ravel()
+        overall_tpr = tp / (tp + fn) if (tp + fn) > 0 else np.array([])
+        overall_tnr = tn / (tn + fp) if (tn + fp) > 0 else np.array([])
 
     cols_string = "\n".join(feature_cols)
 
@@ -303,6 +311,8 @@ def leave_one_patient_out_logistic_regression(
         "weighted_AUC": weighted_auc_score,
         "balanced_accuracy": balanced_acc,
         "weighted_balanced_accuracy": weighted_balanced_acc,
+        "true_positive_rate": overall_tpr,
+        "true_negative_rate": overall_tnr
     }, pt_results_dict, overall_model
 
 
