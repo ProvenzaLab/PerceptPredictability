@@ -394,8 +394,8 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         xlabel='False Positive Rate',
         ylabel='True Positive Rate',
         title='ROC Curve',
-        xlim=[0, 1],
-        ylim=[0, 1]
+        xlim=[-0.01, 1.01],
+        ylim=[-0.01, 1.01]
     )
     boxplot_axs[0].set(
         xticks=range(len(window_widths)), xticklabels=window_widths, xlabel='Window Width (days)',
