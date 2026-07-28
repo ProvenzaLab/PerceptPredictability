@@ -69,3 +69,9 @@ def extract_period_power(ls, target_periods=(6, 12, 24)):
     target_freqs = 1 / np.array(target_periods, dtype=float)
     powers = ls.power(target_freqs)
     return dict(zip(target_periods, powers))
+
+
+def normed_powers(periods, pxx):
+    TARGET_H = (6, 12, 24)
+    total = pxx.sum()
+    return {p: pxx[np.abs(periods - p).argmin()] / total for p in TARGET_H}

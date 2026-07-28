@@ -5,8 +5,11 @@ import matplotlib as mpl
 import pandas as pd
 import seaborn as sns # type: ignore
 from datetime import timedelta, datetime, date, timezone
+from statsmodels.stats.multitest import multipletests
+import statsmodels.formula.api as smf
 from statsmodels.tsa.stattools import acf
 from scipy import stats
+import re
 
 epoch=date(1970, 1, 1)
 epoch_dt=datetime.combine(epoch, datetime.min.time())
@@ -117,25 +120,6 @@ def welch_stats_with_effect_size(group1, group2, n1, n2):
         't_stat': t_stat, 'p_val': p_val, 'dof': dof, 'ci': ci,
         'hedges_g': g, 'hedges_g_ci': g_ci, 'n1': n1, 'n2': n2,
     }
-
-def ttest_ind_with_neff_correction(group1, group2, days1, days2, nlags=30):
-    Neff1 = compute_neff(days1, group1, nlags=nlags)
-    Neff2 = compute_neff(days2, group2, nlags=nlags)
-
-    mean1 = np.mean(group1)
-    mean2 = np.mean(group2)
-    var1 = np.var(group1, ddof=1)
-    var2 = np.var(group2, ddof=1)
-
-    se = np.sqrt(var1 / Neff1 + var2 / Neff2)
-    t_stat = (mean1 - mean2) / se
-    dof = (
-        (var1/Neff1 + var2/Neff2)**2 /
-        ((var1/Neff1)**2/(Neff1-1) +
-            (var2/Neff2)**2/(Neff2-1))
-    )
-    p_val = 2 * stats.t.sf(np.abs(t_stat), df=dof)
-    return t_stat, p_val, Neff1, Neff2
 
 def fmt_ci(ci, decimals=3):
     lo, hi = ci
@@ -258,3 +242,44 @@ def plot_box_and_swarmplot(x, ys, ax, color=None, boxcolor=None, swarmcolor=None
         zorder=7
     )
     return ax
+
+def run_mixedlm(mlm_df, correction=True, verbose=False):
+    model = smf.mixedlm(
+        formula="power ~ response_status * time_bin",
+        data=mlm_df,
+        groups=mlm_df['pt_id']
+    )
+    result = model.fit(method="powell", reml=False)
+
+    if verbose:
+        print(f'MLM results:\n{result.summary()}')
+
+    # Gather model results
+    params = result.params
+    pvalues = result.pvalues
+    conf_int = result.conf_int()
+    df_index = params.index.values
+    groups = [t + ':time_bin[T.00:00:00]' if t == 'group[T.responder]' else t for t in df_index]
+
+    # Create summary dataframe
+    summary_df = pd.DataFrame({
+        'coefficient': params,
+        'pvalue': pvalues,
+        'ci_lower': conf_int[0],
+        'ci_upper': conf_int[1],
+        'time_bins': groups
+    })
+
+    interaction_terms = summary_df[summary_df.index.str.contains('response_status[T.Responder]*')]
+
+    # Apply multiple comparisons correction to p values
+    if correction:
+        _, interaction_terms['pvalue'], _, _ = multipletests(interaction_terms['pvalue'], method='fdr_bh')
+
+    def clean_label(col):
+        m = re.search(r'time_bin\[T\.(\d+):00-(\d+):00\]', col)
+        return (int(m.group(1)), int(m.group(2))) if m else (0, 6)
+
+    interaction_terms['time_bins'] = [clean_label(c) for c in interaction_terms['time_bins']]
+
+    return summary_df, interaction_terms
