@@ -11,3 +11,5 @@ tqdm
 pyyaml
 jupyter
 ipywidgets
+statannotations
+MLstatkit

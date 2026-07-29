@@ -1,4 +1,4 @@
-# Longitudinal Neural Dynamics Forecast Treatment Response During DBS for OCD
+# Percept Predictability
 
 Code and analysis notebooks supporting the manuscript titled:
 
@@ -6,9 +6,29 @@ Code and analysis notebooks supporting the manuscript titled:
 
 This repository contains the analysis code used to reproduce the main-text figures, supplemental figures, and supplemental tables for this study. The project investigates whether chronic neural recordings from sensing-enabled deep brain stimulation (DBS) can provide objective biomarkers of therapeutic engagement and treatment response in treatment-resistant obsessive-compulsive disorder (OCD).
 
+<p align="left">
+  <img src="https://img.shields.io/badge/python-3.13-blue" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/status-in_preparation-orange" alt="Status: in preparation">
+</p>
+
 ---
 
-### Overview
+## Table of contents
+
+- [Overview](#overview)
+- [Repository Structure](#repository-structure)
+- [Getting Started](#getting-started)
+- [Reproducing the Results](#reproducing-the-results)
+- [Data Availability](#data-availability)
+- [Ethics](#ethics)
+- [Companion application](#companion-application)
+- [Citation](#citation)
+- [Acknowledgements](#acknowledgements)
+- [Contact](#contact)
+
+---
+
+## Overview
 
 Clinical improvement following psychiatric DBS can take weeks to months, making it difficult to determine early in treatment whether stimulation is engaging the intended neural circuitry. This study asks whether longitudinal neural dynamics contain information about eventual treatment response before clinical improvement becomes apparent.
 
@@ -31,7 +51,7 @@ The study found that responders exhibited reductions in neural predictability fo
 
 ---
 
-### Repository Structure
+## Repository Structure
 
 ```text
 .
@@ -45,7 +65,7 @@ The study found that responders exhibited reductions in neural predictability fo
 │
 ├── tables.ipynb
 │   └── Extended Data tables
-|
+│
 ├── *_utils.py
 │   └── Various helper functions to process data, create figures, and perform analyses
 │
@@ -63,11 +83,18 @@ The study found that responders exhibited reductions in neural predictability fo
 
 ---
 
-### Reproducing the Results
+## Getting Started
 
-#### 1. Install the required environment
+### Prerequisites
 
-Clone the repository and create a Python environment containing the dependencies used by the analysis notebooks.
+- Python 3.13 (developed and tested on 3.13; other versions untested)
+- ~2 GB free disk for cached intermediates
+- At least 16 GB RAM
+- Jupyter Notebook
+
+### Installation
+
+Clone the repository and create a Python environment (we like Conda) containing the dependencies used by the analysis notebooks.
 
 ```bash
 git clone https://github.com/ProvenzaLab/PerceptPredictability.git
@@ -77,17 +104,22 @@ conda activate percept_predictability_env
 pip install -r requirements.txt
 ```
 
-#### 2. Obtain the data
+### Obtain the Data
 
-The analyses use deidentified neural and clinical data. Our datasets supporting the findings are publicly available through the Data Archive for the BRAIN Initiative (DABI). Place the required files in the data folder of the repository.
+The analyses use deidentified neural and clinical data. Our datasets supporting the findings will be made publicly available (see [Data Availability](#data-availability)). Place the required files in the data folder of the repository.
 
-#### 3. Reporoduce the main-text figures
+---
 
-Start with `process_data.ipynb`. This notebook contains the primary data modeling and processing workflow used to generate the manuscript's main results and figures.
+## Reproducing the Results.
+
+The following steps allow you to reproduce each of the elements present in the manuscript and its supplement. Note that the SVG files produced and saved by the notebooks were post-processed by hand in Adobe Illustrator to generate the figures seen in the manuscript and supplement.
+
+### Reproduce the main-text figures
+
+Start with `process_data.ipynb`. This notebook contains the primary data modeling and processing workflow used to generate the manuscript's main results and figures. Running the notebook should take less than 10 minutes on a modern laptop.
 
 The main analysis includes:
 
-1. Loading preprocessed* longitudinal BrainSense Timeline recordings
 1. Calculation of acrophase using the cosinor model
 1. Calculation of neural predictability using the LinAR-1 model
 1. Comparison of neural predictability across clinical states and response groups
@@ -104,11 +136,11 @@ The main text figures generated are the following:
 1. Early neural changes and treatment-response forecasting
 1. Circadian neural dynamics
 
-\* The core preprocessing pipeline (not included in the published code) extracts BrainSense Timeline data, stimulation settings, and metadata from the JSON files downloaded from the Percept device. It then addresses clock synchronization, removes overvoltage artifacts, interpolates small gaps, and z-scores LFP power within each day.
+The core preprocessing pipeline (not included in the published code) extracts BrainSense Timeline data, stimulation settings, and metadata from the JSON files downloaded from the Percept device. It then addresses clock synchronization, removes overvoltage artifacts, interpolates small gaps, and z-scores LFP power within each day. The data available on DABI are already preprocessed.
 
-#### 4. Reproduce the supplemental figures
+### Reproduce the supplemental figures
 
-Run `supplemental.ipynb`. This notebook contains analysis corresponding to the supplemental/extended data figures.
+Run `supplemental.ipynb`. This notebook contains analysis corresponding to the supplemental/extended data figures. It runs in less than 30 minutes on a laptop.
 
 The supplemental analyses include:
 
@@ -119,9 +151,9 @@ The supplemental analyses include:
 * Extended Data Figure 6: FFT and circadian/polar trajectories across patients
 * Extended Data Figure 7: Neural predictability analysis application
 
-#### 5. Reproduce the supplemental tables
+### Reproduce the supplemental tables
 
-Run `tables.ipynb`. This notebook generates the supplemental/entended data tables accompanying the manuscript.
+Run `tables.ipynb`. This notebook generates the supplemental/extended data tables accompanying the manuscript. It runs in less than 10 minutes on a laptop.
 
 These include:
 
@@ -135,17 +167,81 @@ These include:
 
 ---
 
-### Citation
+## Data availability
 
-If you use this code of analysis pipeline, please cite the associated manuscript:
+Deidentified participant-level neural and clinical datasets supporting these findings will be made publicly available through the Data Archive for the BRAIN Initiative (DABI) registry.
 
->Zhou J, Hanish RR, Merk T, et al. Longitudinal neural dynamics forecast treatment response and therapeutic engagement during deep brain stimulation for OCD
-
-The manuscript identifies this repository as the source of the custom analysis code used to produce the reported results.
+> Status: the DABI accession link is pending and will be added here upon publication. In the interim, please contact the corresponding author regarding data access.
 
 ---
 
-### Acknowledgements
+## Ethics
+
+All participants gave fully informed consent. Protocols were approved by the institutional review boards at Baylor College of Medicine (IRB H-48392; H-56119) and the University of Utah (IRB 00169174).
+
+---
+
+## Companion application
+
+For interactive processing and visualization of Percept BrainSense Timeline data, see the lab's standalone GUI:
+
+[ProvenzaLab/Percept_Data_Analysis_App](https://github.com/ProvenzaLab/Percept_Data_Analysis_App)
+
+Built with PyQt, installable as an executable on Windows and macOS, handles multiple patients at once, and processes roughly one month of data in ~30 seconds on a laptop. All computed variables and plots export to CSV and PNG.
+
+---
+
+## Citation
+
+If you use this code, please cite the associated manuscript:
+
+```bibtex
+@Unpublished{Zhou2026,
+  title   = {Longitudinal neural dynamics forecast treatment response and
+             therapeutic engagement during deep brain stimulation for OCD},
+  author  = {Zhou, Jeffrey and Hanish, Rick R. and Merk, Timon and
+             Soubra, Sarah and Allam, Anthony K. and Reddy, Sandesh and
+             Bao, Royal and Fraczek, Tomasz M. and Gates, Victoria R. and
+             Libowitz, Mark and Paulo, Danika L. and Katlowitz, Kalman A. and
+             Mickey, Brian J. and Kious, Brent M. and Herron, Jeffrey A. and
+             Shofty, Ben and Patel, Ankit B. and Storch, Eric A. and
+             Goodman, Wayne K. and Sheth, Sameer A. and Provenza, Nicole R.},
+  year    = {2026},
+  note    = {Manuscript in preparation}
+}
+```
+
+Please also cite the prior work that introduced the neural predictability biomarker:
+
+```bibtex
+@Article{Provenza2024,
+    author  = {Provenza, Nicole R. and Reddy, Sandesh and Allam, Anthony K. and
+               Rajesh, Sameer V. and Diab, Nabeel and Reyes, Gabriel and
+               Caston, Rose M. and Katlowitz, Kalman A. and Gandhi, Ajay D. and
+               Bechtold, Raphael A. and Dang, Huy Q. and Najera, Ricardo A. and
+               Giridharan, Nisha and Kabotyanski, Katherine E. and Momin, Faiza and
+               Hasen, Mohammed and Banks, Garrett P. and Mickey, Brian J. and
+               Kious, Brent M. and Shofty, Ben and Hayden, Benjamin Y. and
+               Herron, Jeffrey A. and Storch, Eric A. and Patel, Ankit B. and
+               Goodman, Wayne K. and Sheth, Sameer A.},
+    title   = {Disruption of neural periodicity predicts clinical response after
+                deep brain stimulation for obsessive-compulsive disorder},
+    journal = {Nature Medicine},
+    year    = {2024},
+    month   = {Oct},
+    day     = {01},
+    volume  = {30},
+    number  = {10},
+    pages   = {3004-3014},
+    issn    = {1546-170X},
+    doi     = {10.1038/s41591-024-03125-0},
+    url     = {https://doi.org/10.1038/s41591-024-03125-0}
+}
+```
+
+---
+
+## Acknowledgements
 
 This work was supported by the NIH NINDS BRAIN Initiative (UH3 NS136631), NIH NIMH (R01 MH139889), the Brain and Behavior Research Foundation Young Investigator Award, and the McNair Foundation.
 
@@ -153,7 +249,7 @@ We are grateful to the patients and their families for their participation in th
 
 ---
 
-### Contact
+## Contact
 
 For questions regarding the analysis or repository, please open a GitHub issue or contact the corresponding author listed in the manuscript.
 

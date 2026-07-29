@@ -95,6 +95,25 @@ def compute_neff(days, vals, nlags=30):
     Neff = N / (1 + 2 * np.sum(pos_rho))
     return Neff
 
+def ttest_ind_with_neff_correction(group1, group2, days1, days2, nlags=30):
+    Neff1 = compute_neff(days1, group1, nlags=nlags)
+    Neff2 = compute_neff(days2, group2, nlags=nlags)
+
+    mean1 = np.mean(group1)
+    mean2 = np.mean(group2)
+    var1 = np.var(group1, ddof=1)
+    var2 = np.var(group2, ddof=1)
+
+    se = np.sqrt(var1 / Neff1 + var2 / Neff2)
+    t_stat = (mean1 - mean2) / se
+    dof = (
+        (var1/Neff1 + var2/Neff2)**2 /
+        ((var1/Neff1)**2/(Neff1-1) +
+            (var2/Neff2)**2/(Neff2-1))
+    )
+    p_val = 2 * stats.t.sf(np.abs(t_stat), df=dof)
+    return t_stat, p_val
+
 def welch_stats_with_effect_size(group1, group2, n1, n2):
     mean1, mean2 = np.mean(group1), np.mean(group2)
     var1, var2 = np.var(group1, ddof=1), np.var(group2, ddof=1)
