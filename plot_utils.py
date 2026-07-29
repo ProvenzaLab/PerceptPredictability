@@ -5,10 +5,13 @@ import matplotlib as mpl
 import pandas as pd
 import seaborn as sns # type: ignore
 from datetime import timedelta, datetime, date, timezone
+from statsmodels.stats.multitest import multipletests
+import statsmodels.formula.api as smf
 from statsmodels.tsa.stattools import acf
 import statsmodels.formula.api as smf
 from statsmodels.stats.multitest import multipletests
 from scipy import stats
+import re
 
 import re
 
@@ -85,31 +88,56 @@ def compute_neff(days, vals, nlags=30):
     x = data_df['val'].values
     mask = ~np.isnan(x)
     x_valid = x[mask]
-    acf_vals = acf(x_valid, nlags=min(nlags, len(x_valid)-1), fft=True)
+    acf_vals = acf(x_valid, nlags=min(nlags, len(x_valid) - 1), fft=True)
     N = len(x_valid)
     rho = acf_vals[1:]
     pos_rho = rho[rho > 0]
-    Neff = N / (1 + 2*np.sum(pos_rho))
+    Neff = N / (1 + 2 * np.sum(pos_rho))
     return Neff
 
-def ttest_ind_with_neff_correction(group1, group2, days1, days2, nlags=30):
-    Neff1 = compute_neff(days1, group1, nlags=nlags)
-    Neff2 = compute_neff(days2, group2, nlags=nlags)
+def welch_stats_with_effect_size(group1, group2, n1, n2):
+    mean1, mean2 = np.mean(group1), np.mean(group2)
+    var1, var2 = np.var(group1, ddof=1), np.var(group2, ddof=1)
+    diff = mean1 - mean2
 
-    mean1 = np.mean(group1)
-    mean2 = np.mean(group2)
-    var1 = np.var(group1, ddof=1)
-    var2 = np.var(group2, ddof=1)
-
-    se = np.sqrt(var1 / Neff1 + var2 / Neff2)
-    t_stat = (mean1 - mean2) / se
-    dof = (
-        (var1/Neff1 + var2/Neff2)**2 /
-        ((var1/Neff1)**2/(Neff1-1) +
-            (var2/Neff2)**2/(Neff2-1))
+    # Welch's t-test (Satterthwaite dof) using n1/n2 as the sample sizes
+    se = np.sqrt(var1 / n1 + var2 / n2)
+    t_stat = diff / se
+    dof = (var1 / n1 + var2 / n2) ** 2 / (
+        (var1 / n1) ** 2 / (n1 - 1) + (var2 / n2) ** 2 / (n2 - 1)
     )
     p_val = 2 * stats.t.sf(np.abs(t_stat), df=dof)
-    return t_stat, p_val
+    t_crit = stats.t.ppf(0.975, df=dof)
+    ci = (diff - t_crit * se, diff + t_crit * se)
+
+    df_pooled = n1 + n2 - 2
+    pooled_sd = np.sqrt(((n1 - 1) * var1 + (n2 - 1) * var2) / df_pooled)
+    d = diff / pooled_sd
+    J = 1 - 3 / (4 * df_pooled - 1)
+    g = J * d
+    var_d = (n1 + n2) / (n1 * n2) + d ** 2 / (2 * (n1 + n2))
+    se_g = np.sqrt((J ** 2) * var_d)
+    z_crit = stats.norm.ppf(0.975)
+    g_ci = (g - z_crit * se_g, g + z_crit * se_g)
+
+    return {
+        't_stat': t_stat, 'p_val': p_val, 'dof': dof, 'ci': ci,
+        'hedges_g': g, 'hedges_g_ci': g_ci, 'n1': n1, 'n2': n2,
+    }
+
+def fmt_ci(ci, decimals=3):
+    lo, hi = ci
+    if pd.isna(lo) or pd.isna(hi):
+        return '-'
+    return f'({lo:.{decimals}f}, {hi:.{decimals}f})'
+
+def fmt_p(p):
+    if pd.isna(p):
+        return '-'
+    return f'{p:.3e}'
+
+def fmt_num(x, decimals=3):
+    return '-' if pd.isna(x) else f'{x:.{decimals}f}'
 
 def get_asterisk_str(p_val, alpha=0.05):
     if np.isnan(p_val):
