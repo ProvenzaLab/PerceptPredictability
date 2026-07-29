@@ -153,7 +153,7 @@ The supplemental analyses include:
 
 ### Reproduce the supplemental tables
 
-Run `tables.ipynb`. This notebook generates the supplemental/extended data tables accompanying the manuscript. It runs in less than 30 minutes on a laptop.
+Run `tables.ipynb`. This notebook generates the supplemental/extended data tables accompanying the manuscript. It runs in less than 120 minutes on a laptop.
 
 These include:
 
