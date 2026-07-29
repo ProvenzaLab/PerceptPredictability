@@ -1,6 +1,9 @@
 __pycache__
 .vscode
-figures
-tables
+figures/*
+!figures/.gitkeep
+tables/*
+!tables/.gitkeep
 data/*
+!data/.gitkeep
 *.xlsx
