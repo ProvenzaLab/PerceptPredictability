@@ -342,6 +342,8 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         boxcolors = [None] * len(window_widths)
     if swarmcolors is None:
         swarmcolors = ['#808080'] * len(window_widths)
+
+    reg_results = pd.DataFrame(columns = ['Window', 'AUROC', 'BA', 'TPR', 'TNR'])
     for i, window_width in tqdm(enumerate(window_widths), total=len(window_widths)):
         model_feature = get_model_feature(window_width)
         model_df = df.dropna(subset=[model_feature], how='any').groupby(['pt_id', 'days_since_dbs']).head(1).reset_index(drop=True)
@@ -381,16 +383,24 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         boxplot_axs[0].scatter(i, mean_tpr, marker='^', color='g', s=50, zorder=5)
         boxplot_axs[1].scatter(i, mean_tnr, marker='^', color='g', s=50, zorder=5)
 
+        # Calculate overall stats for window width
+        fpr, tpr, _ = roc_curve(all_y_true, all_y_prob)
+        roc_auc = auc(fpr, tpr)
+        balanced_acc = balanced_accuracy_score(all_y_true, all_y_pred)
+
+        cm = confusion_matrix(all_y_true, all_y_pred, labels=[0, 1], normalize='true') * 100
+        tn, fp, fn, tp = cm.ravel()
+        overall_tpr = tp / (tp + fn) if (tp + fn) > 0 else np.array([])
+        overall_tnr = tn / (tn + fp) if (tn + fp) > 0 else np.array([])
+
+        reg_results.loc[len(reg_results)] = [window_width, roc_auc, balanced_acc, overall_tpr, overall_tnr]
         if window_width in [1, 14]:
             # show roc curve
             roc_ax.plot([0, 1], [0, 1], linestyle='--', color='black')
-            fpr, tpr, _ = roc_curve(all_y_true, all_y_prob)
-            roc_auc = auc(fpr, tpr)
             color = boxcolors[i] if boxcolors[i] is not None else f'C{i}'
             roc_ax.plot(fpr, tpr, label=f'Window Width {window_width} days (AUC = {roc_auc:.2f})', color=color)
 
             # make a confusion matrix
-            cm = confusion_matrix(all_y_true, all_y_pred, labels=[0, 1], normalize='true') * 100
             disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Non-Responder', 'Responder'])
             conf_mat_ax = conf_mat_axs[0 if window_width == 1 else 1]
             disp.plot(cmap=plt.cm.viridis, ax=conf_mat_ax, values_format='.2f', im_kw={'vmin': 0, 'vmax': 100})
@@ -415,6 +425,8 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         xticks=range(len(window_widths)), xticklabels=window_widths, xlabel='Window Width (days)',
         ylabel='True Negative Rate', title='TNR vs. Window Width', ylim=[0, 1]
     )
+
+    reg_results.to_excel(f'tables/{'_'.join(model_feature.split('_')[:-3])}_windowed_stats.xlsx', index=False)
 
     return boxplot_axs, roc_ax, conf_mat_axs
 
