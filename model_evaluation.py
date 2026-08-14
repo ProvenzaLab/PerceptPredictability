@@ -32,7 +32,7 @@ def leave_one_patient_out_logistic_regression(
     violin_fig: plt.Figure = None,
     violin_ax: plt.Axes = None,
     colors: list = None,
-    shuffle: bool = False
+    shuffle: str = None
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
     Perform leave-one-patient-out cross-validation with logistic regression.
@@ -47,7 +47,7 @@ def leave_one_patient_out_logistic_regression(
         violin_fig (plt.Figure): Figure object for plotting violin plot of predictions.
         violin_ax (plt.Axes): Axes object for plotting violin plot of predictions.
         colors (list): List of colors for plotting.
-        shuffle (bool): Whether to shuffle symptom state labels.
+        shuffle (str): Shuffle symptom state labels.
 
     Returns:
         Tuple[Dict[str, Any], Dict[str, Any]]: Overall results and patient-specific results.
@@ -71,7 +71,17 @@ def leave_one_patient_out_logistic_regression(
     df = df.dropna(subset=['label']).copy()
 
     if shuffle:
-        df['label'] = df['label'].sample(frac=1).values
+        if shuffle == 'circular':
+            def circular_shift_labels(group: pd.DataFrame) -> pd.Series:
+                group = group.sort_values('days_since_dbs')
+                n = len(group)
+                shift = np.random.randint(1, n) if n > 1 else 0
+                shifted_labels = np.roll(group['label'].values, shift)
+                return pd.Series(shifted_labels, index=group.index)
+
+            df['label'] = df.groupby('pt_id', group_keys=False).apply(circular_shift_labels)
+        else:
+            df['label'] = df['label'].sample(frac=1).values
 
     logo = LeaveOneGroupOut()
     groups = df["pt_id"].values
