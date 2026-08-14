@@ -242,11 +242,12 @@ def leave_one_patient_out_logistic_regression(
 
     # Plot confusion matrices
     if conf_mat_axs is not None:
+        conf_matrix = confusion_matrix(all_y_true, all_y_pred, labels=[0, 1], normalize='true') * 100
         disp1 = ConfusionMatrixDisplay(
             confusion_matrix=conf_matrix,
             display_labels=["Non-Symptomatic", "Symptomatic"],
         )
-        disp1.plot(ax=conf_mat_axs[0], cmap=plt.cm.viridis, values_format="d")
+        disp1.plot(ax=conf_mat_axs[0], cmap=plt.cm.viridis, values_format=".2f")
         conf_mat_axs[0].set_title(f"({cols_string})\nOverall Conf Mat for LOPO CV")
 
         disp2 = ConfusionMatrixDisplay(
