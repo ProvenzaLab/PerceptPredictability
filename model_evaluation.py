@@ -65,6 +65,11 @@ def leave_one_patient_out_logistic_regression(
 
     # Assign binary labels
     bad_labels = {"Unknown", "Transition", "Disinhibited"}
+
+    # Remove pre-DBS from delta models to avoid contamination
+    if any('delta' in col.lower() for col in feature_cols):
+        bad_labels.add("Pre-DBS")
+        
     label_map = {"Pre-DBS": 0, "Non-Responder": 0, "Responder": 1}
     df = df.loc[~df["state_label_str"].isin(bad_labels)].copy()
     df['label'] = df['state_label_str'].map(label_map)
@@ -82,10 +87,6 @@ def leave_one_patient_out_logistic_regression(
 
         pt_id = test_df["pt_id"].iloc[0]
         pt_results: Dict[str, Any] = {}
-
-        # Remove Pre-DBS data from test set if any delta features are used
-        if any("delta" in col.lower() for col in feature_cols):
-            test_df = test_df.query('state_label_str != "Pre-DBS"').copy()
 
         X_train = train_df[feature_cols]
         y_train = train_df["label"].astype(int)
