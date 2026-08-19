@@ -65,7 +65,14 @@ def leave_one_patient_out_logistic_regression(
 
     # Assign binary labels
     bad_labels = {"Unknown", "Transition", "Disinhibited"}
-    label_map = {"Pre-DBS": 0, "Non-Responder": 0, "Responder": 1}
+
+    # Remove pre-DBS from delta models to avoid contamination
+    if any('delta' in col.lower() for col in feature_cols):
+        bad_labels.add("Pre-DBS")
+        label_map = {"Non-Responder": 0, "Responder": 1}
+    else:
+        label_map = {"Pre-DBS": 0, "Non-Responder": 0, "Responder": 1}
+    
     df = df.loc[~df["state_label_str"].isin(bad_labels)].copy()
     df['label'] = df['state_label_str'].map(label_map)
     df = df.dropna(subset=['label']).copy()
@@ -92,10 +99,6 @@ def leave_one_patient_out_logistic_regression(
 
         pt_id = test_df["pt_id"].iloc[0]
         pt_results: Dict[str, Any] = {}
-
-        # Remove Pre-DBS data from test set if any delta features are used
-        if any("delta" in col.lower() for col in feature_cols):
-            test_df = test_df.query('state_label_str != "Pre-DBS"').copy()
 
         X_train = train_df[feature_cols]
         y_train = train_df["label"].astype(int)
@@ -383,6 +386,9 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         tnrs = [tnr for tnr in tnrs if not np.isnan(tnr)]
         mean_tpr = np.mean(tprs)
         mean_tnr = np.mean(tnrs)
+
+        print(f'Window Width: {window_width} days, AUC: {results["AUC"]:.3f}, BA: {results["balanced_accuracy"]:.3f}, TPR: {mean_tpr:.3f}, TNR: {mean_tnr:.3f}')
+
         all_y_true, all_y_pred, all_y_prob = np.array(all_y_true), np.array(all_y_pred), np.array(all_y_prob)
 
         plot_utils.plot_box_and_swarmplot(i, tprs, boxplot_axs[0], boxcolor=boxcolors[i],
