@@ -69,8 +69,10 @@ def leave_one_patient_out_logistic_regression(
     # Remove pre-DBS from delta models to avoid contamination
     if any('delta' in col.lower() for col in feature_cols):
         bad_labels.add("Pre-DBS")
-        
-    label_map = {"Pre-DBS": 0, "Non-Responder": 0, "Responder": 1}
+        label_map = {"Non-Responder": 0, "Responder": 1}
+    else:
+        label_map = {"Pre-DBS": 0, "Non-Responder": 0, "Responder": 1}
+    
     df = df.loc[~df["state_label_str"].isin(bad_labels)].copy()
     df['label'] = df['state_label_str'].map(label_map)
     df = df.dropna(subset=['label']).copy()
