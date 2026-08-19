@@ -373,6 +373,9 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         tnrs = [tnr for tnr in tnrs if not np.isnan(tnr)]
         mean_tpr = np.mean(tprs)
         mean_tnr = np.mean(tnrs)
+
+        print(f'Window Width: {window_width} days, AUC: {results["AUC"]:.3f}, BA: {results["balanced_accuracy"]:.3f}, TPR: {mean_tpr:.3f}, TNR: {mean_tnr:.3f}')
+
         all_y_true, all_y_pred, all_y_prob = np.array(all_y_true), np.array(all_y_pred), np.array(all_y_prob)
 
         plot_utils.plot_box_and_swarmplot(i, tprs, boxplot_axs[0], boxcolor=boxcolors[i],
