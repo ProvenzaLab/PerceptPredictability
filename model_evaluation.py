@@ -107,10 +107,9 @@ def leave_one_patient_out_logistic_regression(
         X_test = test_df[feature_cols]
         y_test = test_df["label"].astype(int)
 
-        # Pipeline: standardize inside each fold, then fit logistic regression
+        # Pipeline: fit logistic regression
         model = Pipeline(
             steps=[
-                # ("scaler", StandardScaler()),
                 ("logreg", LogisticRegression(
                     class_weight="balanced",
                     penalty=None,
