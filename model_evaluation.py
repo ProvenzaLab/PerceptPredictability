@@ -453,9 +453,6 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         all_y_prob = np.array(all_y_prob)
         all_y_pred = np.array(all_y_pred)
 
-        print(f'Window Width: {window_width} days, AUC: {auc(*roc_curve(all_y_true, all_y_prob)[:2]):.3f}, '
-              f'TPR: {mean_tpr:.3f}, TNR: {mean_tnr:.3f}, EER threshold: {eer_threshold:.3f}')
-
         plot_utils.plot_box_and_swarmplot(i, tprs, boxplot_axs[0], boxcolor=boxcolors[i],
                                           swarmcolor=swarmcolors[i], alpha=1, size=3)
         plot_utils.plot_box_and_swarmplot(i, tnrs, boxplot_axs[1], boxcolor=boxcolors[i],
@@ -468,6 +465,9 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         fpr, tpr, _ = roc_curve(all_y_true, all_y_prob)
         roc_auc = auc(fpr, tpr)
         balanced_acc = balanced_accuracy_score(all_y_true, all_y_pred)
+
+        print(f'Window Width: {window_width} days, AUC: {auc(*roc_curve(all_y_true, all_y_prob)[:2]):.3f}, '
+              f'BA: {balanced_acc:.3f}, TPR: {mean_tpr:.3f}, TNR: {mean_tnr:.3f}, EER threshold: {eer_threshold:.3f}')
 
         cm = confusion_matrix(all_y_true, all_y_pred, labels=[0, 1], normalize='true') * 100
         tn, fp, fn, tp = cm.ravel()
