@@ -32,7 +32,8 @@ def leave_one_patient_out_logistic_regression(
     violin_fig: plt.Figure = None,
     violin_ax: plt.Axes = None,
     colors: list = None,
-    shuffle: str = None
+    shuffle: str = None,
+    threshold: float = 0.5,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
     Perform leave-one-patient-out cross-validation with logistic regression.
@@ -48,6 +49,7 @@ def leave_one_patient_out_logistic_regression(
         violin_ax (plt.Axes): Axes object for plotting violin plot of predictions.
         colors (list): List of colors for plotting.
         shuffle (str): Shuffle symptom state labels.
+        threshold (float): Probability cutoff.
 
     Returns:
         Tuple[Dict[str, Any], Dict[str, Any]]: Overall results and patient-specific results.
@@ -131,11 +133,11 @@ def leave_one_patient_out_logistic_regression(
             pt_results_dict[pt_id] = pt_results
             continue
 
-        # Predict on fold
-        y_pred = model.predict(X_test)
+        # Predict out-of-fold probabilities for the held-out patient
         y_prob_all = model.predict_proba(X_test)
         class_1_idx = np.where(model.named_steps["logreg"].classes_ == 1)[0][0]
         y_prob = y_prob_all[:, class_1_idx]
+        y_pred = (y_prob >= threshold).astype(int)
 
         # Store global results
         all_y_true.extend(y_test.to_numpy().tolist())
@@ -330,9 +332,71 @@ def leave_one_patient_out_logistic_regression(
     }, pt_results_dict, overall_model
 
 
+def _per_patient_rates_at_threshold(pt_results, threshold):
+    """
+    Compute per-patient TPR and TNR at a given probability threshold.
+
+    Args:
+        pt_results: Dict of per-patient result dicts, each with 'y_true' and 'y_prob'.
+        threshold: Probability cutoff to convert y_prob into binary predictions.
+
+    Returns:
+        Tuple[list, list]: per-patient TPRs and TNRs, in the same order for patients that have both defined.
+    """
+    tprs, tnrs = [], []
+    for pt_result in pt_results.values():
+        if 'y_true' not in pt_result or 'y_prob' not in pt_result:
+            continue
+        y_true, y_prob = pt_result['y_true'], pt_result['y_prob']
+        y_pred = (np.array(y_prob) >= threshold).astype(int)
+        conf_mat = confusion_matrix(y_true, y_pred, labels=[0, 1])
+        tn, fp, fn, tp = conf_mat.ravel()
+        tpr = tp / (tp + fn) if (tp + fn) > 0 else np.nan
+        tnr = tn / (tn + fp) if (tn + fp) > 0 else np.nan
+        tprs.append(tpr)
+        tnrs.append(tnr)
+    return tprs, tnrs
+
+
+def _per_patient_eer_threshold(pt_results):
+    """
+    Find the probability threshold at which the mean per-patient TPR is
+    closest to the mean per-patient TNR.
+
+    Args:
+        pt_results: Dict of per-patient result dicts, each with 'y_true' and 'y_prob'.
+
+    Returns:
+        float: threshold minimizing |mean(per-patient TPR) - mean(per-patient TNR)|.
+               Falls back to 0.5 if no candidate thresholds are available.
+    """
+    all_probs = np.concatenate([
+        np.asarray(pt_result['y_prob'])
+        for pt_result in pt_results.values()
+        if 'y_prob' in pt_result and len(pt_result['y_prob']) > 0
+    ]) if pt_results else np.array([])
+
+    if all_probs.size == 0:
+        return 0.5
+
+    candidate_thresholds = np.unique(all_probs)
+    best_threshold, best_gap = 0.5, np.inf
+    for threshold in candidate_thresholds:
+        tprs, tnrs = _per_patient_rates_at_threshold(pt_results, threshold)
+        tprs = [tp for tp in tprs if not np.isnan(tp)]
+        tnrs = [tnr for tnr in tnrs if not np.isnan(tnr)]
+        if not tprs or not tnrs:
+            continue
+        gap = abs(np.mean(tprs) - np.mean(tnrs))
+        if gap < best_gap:
+            best_gap, best_threshold = gap, threshold
+
+    return float(best_threshold)
+
+
 def plot_model_metrics(df, get_model_feature, window_widths,
                        boxplot_axs, roc_ax, conf_mat_axs,
-                       operating_point=0.5, boxcolors=None, swarmcolors=None):
+                       boxcolors=None, swarmcolors=None):
     """
     Plots model evaluation metrics (TPR, TNR, ROC curve, confusion matrix) for different window widths.
 
@@ -343,7 +407,6 @@ def plot_model_metrics(df, get_model_feature, window_widths,
     - boxplot_axs: Tuple of two Matplotlib axes for plotting TPR and TNR boxplots.
     - roc_ax: Matplotlib axis for plotting the ROC curve.
     - conf_mat_axs: Tuple of two Matplotlib axes for plotting confusion matrices for specific window widths.
-    - operating_point: Threshold for classifying probabilities into binary predictions (default is 0.5).
     - boxcolors: List of colors for the boxplots (default is None, which will use the default color).
     - swarmcolors: List of colors for the swarmplot points (default is ['#808080'] * len(window_widths)).
 
@@ -357,46 +420,48 @@ def plot_model_metrics(df, get_model_feature, window_widths,
     if swarmcolors is None:
         swarmcolors = ['#808080'] * len(window_widths)
 
-    reg_results = pd.DataFrame(columns = ['Window', 'AUROC', 'BA', 'TPR', 'TNR'])
+    reg_results = pd.DataFrame(columns=['Window', 'AUROC', 'BA', 'TPR', 'TNR', 'EER_Threshold'])
     for i, window_width in tqdm(enumerate(window_widths), total=len(window_widths)):
         model_feature = get_model_feature(window_width)
         model_df = df.dropna(subset=[model_feature], how='any').groupby(['pt_id', 'days_since_dbs']).head(1).reset_index(drop=True)
-        results, pt_results, overall_model = leave_one_patient_out_logistic_regression(
+
+        # First pass: run LOPO-CV once to collect per-patient out-of-fold probabilities
+        _, pt_results, _ = leave_one_patient_out_logistic_regression(
             model_df,
             [model_feature],
             colors=list(COL_PAL.values()),
         )
-        tprs, tnrs = [], []
-        all_y_true, all_y_pred, all_y_prob = [], [], []
-        for pt_id, pt_result in pt_results.items():
-            if 'y_true' not in pt_result or 'y_prob' not in pt_result:
-                continue
-            y_true, y_prob = pt_result['y_true'], pt_result['y_prob']
-            y_pred = (np.array(y_prob) >= operating_point).astype(int)
-            conf_mat = confusion_matrix(y_true, y_pred, labels=[0, 1])
-            tn, fp, fn, tp = conf_mat.ravel()
-            tpr = tp / (tp + fn) if (tp + fn) > 0 else np.nan
-            tnr = tn / (tn + fp) if (tn + fp) > 0 else np.nan
-            tprs.append(tpr)
-            tnrs.append(tnr)
-            all_y_true.extend(y_true)
-            all_y_pred.extend(y_pred)
-            all_y_prob.extend(y_prob)
+
+        # Derive a single threshold at the average per-patient equal error rate (EER)
+        eer_threshold = _per_patient_eer_threshold(pt_results)
+
+        tprs, tnrs = _per_patient_rates_at_threshold(pt_results, eer_threshold)
         tprs = [tp for tp in tprs if not np.isnan(tp)]
         tnrs = [tnr for tnr in tnrs if not np.isnan(tnr)]
         mean_tpr = np.mean(tprs)
         mean_tnr = np.mean(tnrs)
 
-        print(f'Window Width: {window_width} days, AUC: {results["AUC"]:.3f}, BA: {results["balanced_accuracy"]:.3f}, TPR: {mean_tpr:.3f}, TNR: {mean_tnr:.3f}')
+        all_y_true, all_y_prob, all_y_pred = [], [], []
+        for pt_result in pt_results.values():
+            if 'y_true' not in pt_result or 'y_prob' not in pt_result:
+                continue
+            y_true, y_prob = pt_result['y_true'], pt_result['y_prob']
+            y_pred = (np.array(y_prob) >= eer_threshold).astype(int)
+            all_y_true.extend(y_true)
+            all_y_prob.extend(y_prob)
+            all_y_pred.extend(y_pred)
+        all_y_true = np.array(all_y_true)
+        all_y_prob = np.array(all_y_prob)
+        all_y_pred = np.array(all_y_pred)
 
-        all_y_true, all_y_pred, all_y_prob = np.array(all_y_true), np.array(all_y_pred), np.array(all_y_prob)
+        print(f'Window Width: {window_width} days, AUC: {auc(*roc_curve(all_y_true, all_y_prob)[:2]):.3f}, '
+              f'TPR: {mean_tpr:.3f}, TNR: {mean_tnr:.3f}, EER threshold: {eer_threshold:.3f}')
 
         plot_utils.plot_box_and_swarmplot(i, tprs, boxplot_axs[0], boxcolor=boxcolors[i],
                                           swarmcolor=swarmcolors[i], alpha=1, size=3)
         plot_utils.plot_box_and_swarmplot(i, tnrs, boxplot_axs[1], boxcolor=boxcolors[i],
                                           swarmcolor=swarmcolors[i], alpha=1, size=3)
 
-        # get tnr and tpr of all_y_true and all_y_pred at the operating point
         boxplot_axs[0].scatter(i, mean_tpr, marker='^', color='g', s=50, zorder=5)
         boxplot_axs[1].scatter(i, mean_tnr, marker='^', color='g', s=50, zorder=5)
 
@@ -410,7 +475,9 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         overall_tpr = tp / (tp + fn) if (tp + fn) > 0 else np.array([])
         overall_tnr = tn / (tn + fp) if (tn + fp) > 0 else np.array([])
 
-        reg_results.loc[len(reg_results)] = [window_width, roc_auc, balanced_acc, overall_tpr, overall_tnr]
+        reg_results.loc[len(reg_results)] = [
+            window_width, roc_auc, balanced_acc, overall_tpr, overall_tnr, eer_threshold
+        ]
         if window_width in [1, 14]:
             # show roc curve
             roc_ax.plot([0, 1], [0, 1], linestyle='--', color='black')
