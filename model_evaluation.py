@@ -331,6 +331,31 @@ def leave_one_patient_out_logistic_regression(
     }, pt_results_dict, overall_model
 
 
+def _patient_score_arrays(pt_results):
+    """
+    Split each patient's out-of-fold predictions into sorted positive- and negative-class score arrays.
+
+    Args:
+        pt_results: Dict of per-patient result dicts, each with 'y_true' and 'y_prob'.
+
+    Returns:
+        Tuple[list, list]: sorted positive-class scores and sorted negative-class
+            scores, one array per patient that has predictions. Either array may
+            be empty for a given patient.
+    """
+    pos_sorted, neg_sorted = [], []
+    for pt_result in pt_results.values():
+        if 'y_true' not in pt_result or 'y_prob' not in pt_result:
+            continue
+        y_true = np.asarray(pt_result['y_true'])
+        y_prob = np.asarray(pt_result['y_prob'], dtype=float)
+        if y_prob.size == 0:
+            continue
+        pos_sorted.append(np.sort(y_prob[y_true == 1]))
+        neg_sorted.append(np.sort(y_prob[y_true == 0]))
+    return pos_sorted, neg_sorted
+
+
 def _per_patient_rates_at_threshold(pt_results, threshold):
     """
     Compute per-patient TPR and TNR at a given probability threshold.
@@ -340,57 +365,59 @@ def _per_patient_rates_at_threshold(pt_results, threshold):
         threshold: Probability cutoff to convert y_prob into binary predictions.
 
     Returns:
-        Tuple[list, list]: per-patient TPRs and TNRs, in the same order for patients that have both defined.
+        Tuple[list, list]: per-patient TPRs and TNRs, in the same order for
+            patients that have both defined.
     """
     tprs, tnrs = [], []
     for pt_result in pt_results.values():
         if 'y_true' not in pt_result or 'y_prob' not in pt_result:
             continue
-        y_true, y_prob = pt_result['y_true'], pt_result['y_prob']
-        y_pred = (np.array(y_prob) >= threshold).astype(int)
-        conf_mat = confusion_matrix(y_true, y_pred, labels=[0, 1])
-        tn, fp, fn, tp = conf_mat.ravel()
-        tpr = tp / (tp + fn) if (tp + fn) > 0 else np.nan
-        tnr = tn / (tn + fp) if (tn + fp) > 0 else np.nan
-        tprs.append(tpr)
-        tnrs.append(tnr)
+        y_true = np.asarray(pt_result['y_true'])
+        y_pred = np.asarray(pt_result['y_prob'], dtype=float) >= threshold
+        n_pos = int(np.count_nonzero(y_true == 1))
+        n_neg = int(np.count_nonzero(y_true == 0))
+        tp = int(np.count_nonzero(y_pred & (y_true == 1)))
+        tn = int(np.count_nonzero(~y_pred & (y_true == 0)))
+        tprs.append(tp / n_pos if n_pos > 0 else np.nan)
+        tnrs.append(tn / n_neg if n_neg > 0 else np.nan)
     return tprs, tnrs
 
 
 def _per_patient_eer_threshold(pt_results):
     """
-    Find the probability threshold at which the mean per-patient TPR is
-    closest to the mean per-patient TNR.
+    Find the probability threshold at which the mean TPR is closest to the mean TNR.
 
     Args:
         pt_results: Dict of per-patient result dicts, each with 'y_true' and 'y_prob'.
 
     Returns:
-        float: threshold minimizing |mean(per-patient TPR) - mean(per-patient TNR)|.
-               Falls back to 0.5 if no candidate thresholds are available.
+        float: threshold minimizing |mean(per-patient TPR) - mean(per-patient TNR)|. Defaults to 0.5.
     """
-    all_probs = np.concatenate([
-        np.asarray(pt_result['y_prob'])
-        for pt_result in pt_results.values()
-        if 'y_prob' in pt_result and len(pt_result['y_prob']) > 0
-    ]) if pt_results else np.array([])
-
-    if all_probs.size == 0:
+    pos_sorted, neg_sorted = _patient_score_arrays(pt_results)
+    scored = [arr for arr in pos_sorted + neg_sorted if arr.size > 0]
+    if not scored:
         return 0.5
 
-    candidate_thresholds = np.unique(all_probs)
-    best_threshold, best_gap = 0.5, np.inf
-    for threshold in candidate_thresholds:
-        tprs, tnrs = _per_patient_rates_at_threshold(pt_results, threshold)
-        tprs = [tp for tp in tprs if not np.isnan(tp)]
-        tnrs = [tnr for tnr in tnrs if not np.isnan(tnr)]
-        if not tprs or not tnrs:
-            continue
-        gap = abs(np.mean(tprs) - np.mean(tnrs))
-        if gap < best_gap:
-            best_gap, best_threshold = gap, threshold
+    thresholds = np.unique(np.concatenate(scored))
 
-    return float(best_threshold)
+    tpr_sum = np.zeros(thresholds.size)
+    tnr_sum = np.zeros(thresholds.size)
+    n_tpr = n_tnr = 0
+    for pos, neg in zip(pos_sorted, neg_sorted):
+        if pos.size > 0:
+            # predicted positive == score >= threshold
+            tpr_sum += (pos.size - np.searchsorted(pos, thresholds, side='left')) / pos.size
+            n_tpr += 1
+        if neg.size > 0:
+            # predicted negative == score < threshold
+            tnr_sum += np.searchsorted(neg, thresholds, side='left') / neg.size
+            n_tnr += 1
+
+    if n_tpr == 0 or n_tnr == 0:
+        return 0.5
+
+    gaps = np.abs(tpr_sum / n_tpr - tnr_sum / n_tnr)
+    return float(thresholds[int(np.argmin(gaps))])
 
 
 def plot_model_metrics(df, get_model_feature, window_widths,
