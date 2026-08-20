@@ -7,7 +7,7 @@ Code and analysis notebooks supporting the manuscript titled:
 This repository contains the analysis code used to reproduce the main-text figures, supplemental figures, and supplemental tables for this study. The project investigates whether chronic neural recordings from sensing-enabled deep brain stimulation (DBS) can provide objective biomarkers of therapeutic engagement and treatment response in treatment-resistant obsessive-compulsive disorder (OCD).
 
 <p align="left">
-  <img src="https://img.shields.io/badge/python-3.13-blue" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/python-3.13-blue" alt="Python 3.12+">
   <img src="https://img.shields.io/badge/status-in_preparation-orange" alt="Status: in preparation">
 </p>
 

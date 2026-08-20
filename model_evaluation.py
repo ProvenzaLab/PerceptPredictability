@@ -282,8 +282,8 @@ def leave_one_patient_out_logistic_regression(
         nr_median = np.median(nr_data)
         r_median = np.median(r_data)
 
-        plot_utils.make_violin_plot_pretty(nr_parts, colors[0], nr_median, violin_ax, alpha=0.5, x_center=1)
-        plot_utils.make_violin_plot_pretty(r_parts, colors[3], r_median, violin_ax, alpha=0.5, x_center=1)
+        plot_utils.make_violin_plot_pretty(nr_parts, COL_PAL['Non-Responder'], nr_median, violin_ax, alpha=0.5, x_center=1)
+        plot_utils.make_violin_plot_pretty(r_parts, COL_PAL['Responder'], r_median, violin_ax, alpha=0.5, x_center=1)
 
         a = 0.1
         violin_ax.scatter(
