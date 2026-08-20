@@ -451,7 +451,6 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         model_feature = get_model_feature(window_width)
         model_df = df.dropna(subset=[model_feature], how='any').groupby(['pt_id', 'days_since_dbs']).head(1).reset_index(drop=True)
 
-        # First pass: run LOPO-CV once to collect per-patient out-of-fold probabilities
         _, pt_results, _ = leave_one_patient_out_logistic_regression(
             model_df,
             [model_feature],
@@ -467,7 +466,7 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         mean_tpr = np.mean(tprs)
         mean_tnr = np.mean(tnrs)
 
-        all_y_true, all_y_prob, all_y_pred = [], [], []
+        all_y_true, all_y_prob, all_y_pred, all_weights = [], [], [], []
         for pt_result in pt_results.values():
             if 'y_true' not in pt_result or 'y_prob' not in pt_result:
                 continue
@@ -476,9 +475,11 @@ def plot_model_metrics(df, get_model_feature, window_widths,
             all_y_true.extend(y_true)
             all_y_prob.extend(y_prob)
             all_y_pred.extend(y_pred)
+            all_weights.extend([1 / len(y_true)] * len(y_true))
         all_y_true = np.array(all_y_true)
         all_y_prob = np.array(all_y_prob)
         all_y_pred = np.array(all_y_pred)
+        all_weights = np.asarray(all_weights)
 
         plot_utils.plot_box_and_swarmplot(i, tprs, boxplot_axs[0], boxcolor=boxcolors[i],
                                           swarmcolor=swarmcolors[i], alpha=1, size=3)
@@ -488,27 +489,40 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         boxplot_axs[0].scatter(i, mean_tpr, marker='^', color='g', s=50, zorder=5)
         boxplot_axs[1].scatter(i, mean_tnr, marker='^', color='g', s=50, zorder=5)
 
-        # Calculate overall stats for window width
-        fpr, tpr, _ = roc_curve(all_y_true, all_y_prob)
-        roc_auc = auc(fpr, tpr)
-        balanced_acc = balanced_accuracy_score(all_y_true, all_y_pred)
-
-        print(f'Window Width: {window_width} days, AUC: {auc(*roc_curve(all_y_true, all_y_prob)[:2]):.3f}, '
-              f'BA: {balanced_acc:.3f}, TPR: {mean_tpr:.3f}, TNR: {mean_tnr:.3f}, EER threshold: {eer_threshold:.3f}')
+        # Calculate overall stats for window width (each sample/day weighted equally)
+        fpr_by_day, tpr_by_day, _ = roc_curve(all_y_true, all_y_prob)
+        roc_auc = auc(fpr_by_day, tpr_by_day)
+        balanced_acc_by_day = balanced_accuracy_score(all_y_true, all_y_pred)
 
         cm = confusion_matrix(all_y_true, all_y_pred, labels=[0, 1], normalize='true') * 100
         tn, fp, fn, tp = cm.ravel()
         overall_tpr = tp / (tp + fn) if (tp + fn) > 0 else np.array([])
         overall_tnr = tn / (tn + fp) if (tn + fp) > 0 else np.array([])
+        avg_tpr_by_day = overall_tpr if np.size(overall_tpr) else np.nan
+        avg_tnr_by_day = overall_tnr if np.size(overall_tnr) else np.nan
+
+        # Per-patient-weighted versions (each patient contributes equally regardless of sample count)
+        weighted_auc_score = roc_auc_score(all_y_true, all_y_prob, sample_weight=all_weights)
+        weighted_balanced_acc = balanced_accuracy_score(all_y_true, all_y_pred, sample_weight=all_weights)
+
+        print('-' * 100)
+        print('WEIGHTED BY DAY')
+        print(f'Window Width: {window_width} days, AUC: {roc_auc:.3g}, '
+              f'BA: {balanced_acc_by_day:.3g}, TPR: {avg_tpr_by_day:.3g}, TNR: {avg_tnr_by_day:.3g}, EER threshold: -')
+        print('-' * 100)
+        print('WEIGHTED BY PATIENT')
+        print(f'Window Width: {window_width} days, AUC: {weighted_auc_score:.3g}, '
+              f'BA: {weighted_balanced_acc:.3g}, TPR: {mean_tpr:.3g}, TNR: {mean_tnr:.3g}, EER threshold: {eer_threshold:.3g}')
+        print()
 
         reg_results.loc[len(reg_results)] = [
-            window_width, roc_auc, balanced_acc, overall_tpr, overall_tnr, eer_threshold
+            window_width, roc_auc, balanced_acc_by_day, overall_tpr, overall_tnr, eer_threshold
         ]
         if window_width in [1, 14]:
             # show roc curve
             roc_ax.plot([0, 1], [0, 1], linestyle='--', color='black')
             color = boxcolors[i] if boxcolors[i] is not None else f'C{i}'
-            roc_ax.plot(fpr, tpr, label=f'Window Width {window_width} days (AUC = {roc_auc:.2f})', color=color)
+            roc_ax.plot(fpr_by_day, tpr_by_day, label=f'Window Width {window_width} days (AUC = {roc_auc:.2f})', color=color)
 
             # make a confusion matrix
             disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Non-Responder', 'Responder'])
