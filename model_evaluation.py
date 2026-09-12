@@ -33,7 +33,6 @@ def leave_one_patient_out_logistic_regression(
     violin_ax: plt.Axes = None,
     colors: list = None,
     shuffle: str = None,
-    threshold: float = 0.5,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
     Perform leave-one-patient-out cross-validation with logistic regression.
@@ -49,7 +48,6 @@ def leave_one_patient_out_logistic_regression(
         violin_ax (plt.Axes): Axes object for plotting violin plot of predictions.
         colors (list): List of colors for plotting.
         shuffle (str): Shuffle symptom state labels.
-        threshold (float): Probability cutoff.
 
     Returns:
         Tuple[Dict[str, Any], Dict[str, Any]]: Overall results and patient-specific results.
@@ -136,29 +134,51 @@ def leave_one_patient_out_logistic_regression(
         y_prob_all = model.predict_proba(X_test)
         class_1_idx = np.where(model.named_steps["logreg"].classes_ == 1)[0][0]
         y_prob = y_prob_all[:, class_1_idx]
-        y_pred = (y_prob >= threshold).astype(int)
 
-        # Store global results
-        all_y_true.extend(y_test.to_numpy().tolist())
-        all_y_pred.extend(y_pred.tolist())
-        all_y_prob.extend(y_prob.tolist())
-        all_weights.extend([1 / len(y_test)] * len(y_test))
+        pt_results["y_true"] = y_test.to_numpy()
+        pt_results["y_prob"] = y_prob
+        pt_results["auc"] = roc_auc_score(y_test, y_prob) if y_test.nunique() > 1 else np.nan
+
+        pt_results_dict[pt_id] = pt_results
+
+    # Binarization is deferred until every fold is scored, since each patient's
+    # cutoff is derived from the other patients' predictions
+    thresholds = nested_eer_thresholds(pt_results_dict)
+
+    for pt_id, pt_results in pt_results_dict.items():
+        if 'y_true' not in pt_results:
+            continue
+
+        pt_threshold = thresholds.get(pt_id, 0.5)
+        y_test, y_prob = pt_results["y_true"], pt_results["y_prob"]
+        y_pred = (y_prob >= pt_threshold).astype(int)
+
+        pt_results["threshold"] = pt_threshold
+        pt_results["y_pred"] = y_pred
+
+        # Express the cutoff in feature units for single-feature models
+        if len(feature_cols) == 1:
+            logreg = pt_results["model"].named_steps["logreg"]
+            w0, w1 = float(logreg.intercept_[0]), float(logreg.coef_[0][0])
+            pt_results["feature_boundary"] = (
+                (float(np.log(pt_threshold / (1 - pt_threshold))) - w0) / w1 if w1 else np.nan
+            )
 
         # Per-patient results
         pt_results["confusion_matrix"] = confusion_matrix(y_test, y_pred, labels=[0, 1])
         pt_results["weighted_confusion_matrix"] = confusion_matrix(
             y_test, y_pred, labels=[0, 1], normalize="all"
         )
-        pt_results["y_true"] = y_test.to_numpy()
-        pt_results["y_pred"] = y_pred
-        pt_results["y_prob"] = y_prob
-        pt_results["auc"] = roc_auc_score(y_test, y_prob) if y_test.nunique() > 1 else np.nan
         pt_results["balanced_accuracy"] = (
-            balanced_accuracy_score(y_test, y_pred) if y_test.nunique() > 1 else np.nan
+            balanced_accuracy_score(y_test, y_pred) if np.unique(y_test).size > 1 else np.nan
         )
         pt_results["raw_accuracy"] = accuracy_score(y_test, y_pred)
 
-        pt_results_dict[pt_id] = pt_results
+        # Store global results
+        all_y_true.extend(y_test.tolist())
+        all_y_pred.extend(y_pred.tolist())
+        all_y_prob.extend(y_prob.tolist())
+        all_weights.extend([1 / len(y_test)] * len(y_test))
 
     all_y_true = np.asarray(all_y_true)
     all_y_pred = np.asarray(all_y_pred)
@@ -327,53 +347,69 @@ def leave_one_patient_out_logistic_regression(
         "balanced_accuracy": balanced_acc,
         "weighted_balanced_accuracy": weighted_balanced_acc,
         "true_positive_rate": overall_tpr,
-        "true_negative_rate": overall_tnr
+        "true_negative_rate": overall_tnr,
+        "thresholds": thresholds
     }, pt_results_dict, overall_model
 
 
-def _patient_score_arrays(pt_results):
-    """
-    Split each patient's out-of-fold predictions into sorted positive- and negative-class score arrays.
-
-    Args:
-        pt_results: Dict of per-patient result dicts, each with 'y_true' and 'y_prob'.
-
-    Returns:
-        Tuple[list, list]: sorted positive-class scores and sorted negative-class
-            scores, one array per patient that has predictions. Either array may
-            be empty for a given patient.
-    """
-    pos_sorted, neg_sorted = [], []
-    for pt_result in pt_results.values():
-        if 'y_true' not in pt_result or 'y_prob' not in pt_result:
+def nested_eer_thresholds(pt_results):
+    """Derive each patient's equal error rate cutoff from the other patients' predictions."""
+    pt_ids, pos_sorted, neg_sorted = [], [], []
+    for pt_id, pt_result in pt_results.items():
+        if 'y_true' not in pt_result or np.size(pt_result['y_prob']) == 0:
             continue
         y_true = np.asarray(pt_result['y_true'])
         y_prob = np.asarray(pt_result['y_prob'], dtype=float)
-        if y_prob.size == 0:
-            continue
+        pt_ids.append(pt_id)
         pos_sorted.append(np.sort(y_prob[y_true == 1]))
         neg_sorted.append(np.sort(y_prob[y_true == 0]))
-    return pos_sorted, neg_sorted
+
+    scored = [arr for arr in pos_sorted + neg_sorted if arr.size > 0]
+    if not scored:
+        return {}
+
+    grid = np.unique(np.concatenate(scored))
+    tprs = np.zeros((len(pt_ids), grid.size))
+    tnrs = np.zeros((len(pt_ids), grid.size))
+    owns = np.zeros((len(pt_ids), grid.size), dtype=bool)
+
+    for i, (pos, neg) in enumerate(zip(pos_sorted, neg_sorted)):
+        if pos.size > 0:
+            # predicted positive == score >= threshold
+            tprs[i] = (pos.size - np.searchsorted(pos, grid, side='left')) / pos.size
+            owns[i] |= np.isin(grid, pos)
+        if neg.size > 0:
+            # predicted negative == score < threshold
+            tnrs[i] = np.searchsorted(neg, grid, side='left') / neg.size
+            owns[i] |= np.isin(grid, neg)
+
+    has_pos = np.array([arr.size > 0 for arr in pos_sorted])
+    has_neg = np.array([arr.size > 0 for arr in neg_sorted])
+    tpr_sum, tnr_sum = tprs.sum(axis=0), tnrs.sum(axis=0)
+    n_tpr, n_tnr = int(has_pos.sum()), int(has_neg.sum())
+    grid_owners = owns.sum(axis=0)
+
+    thresholds = {}
+    for i, pt_id in enumerate(pt_ids):
+        k_tpr, k_tnr = n_tpr - int(has_pos[i]), n_tnr - int(has_neg[i])
+        # drop candidate cutoffs contributed by this patient alone
+        valid = (grid_owners - owns[i]) > 0
+        if k_tpr == 0 or k_tnr == 0 or not valid.any():
+            thresholds[pt_id] = 0.5
+            continue
+        gaps = np.abs((tpr_sum - tprs[i]) / k_tpr - (tnr_sum - tnrs[i]) / k_tnr)
+        thresholds[pt_id] = float(grid[int(np.argmin(np.where(valid, gaps, np.inf)))])
+    return thresholds
 
 
-def _per_patient_rates_at_threshold(pt_results, threshold):
-    """
-    Compute per-patient TPR and TNR at a given probability threshold.
-
-    Args:
-        pt_results: Dict of per-patient result dicts, each with 'y_true' and 'y_prob'.
-        threshold: Probability cutoff to convert y_prob into binary predictions.
-
-    Returns:
-        Tuple[list, list]: per-patient TPRs and TNRs, in the same order for
-            patients that have both defined.
-    """
+def per_patient_rates(pt_results):
+    """Compute per-patient TPR and TNR, each at that patient's own operating point."""
     tprs, tnrs = [], []
     for pt_result in pt_results.values():
-        if 'y_true' not in pt_result or 'y_prob' not in pt_result:
+        if 'y_pred' not in pt_result:
             continue
         y_true = np.asarray(pt_result['y_true'])
-        y_pred = np.asarray(pt_result['y_prob'], dtype=float) >= threshold
+        y_pred = np.asarray(pt_result['y_pred']).astype(bool)
         n_pos = int(np.count_nonzero(y_true == 1))
         n_neg = int(np.count_nonzero(y_true == 0))
         tp = int(np.count_nonzero(y_pred & (y_true == 1)))
@@ -382,42 +418,6 @@ def _per_patient_rates_at_threshold(pt_results, threshold):
         tnrs.append(tn / n_neg if n_neg > 0 else np.nan)
     return tprs, tnrs
 
-
-def _per_patient_eer_threshold(pt_results):
-    """
-    Find the probability threshold at which the mean TPR is closest to the mean TNR.
-
-    Args:
-        pt_results: Dict of per-patient result dicts, each with 'y_true' and 'y_prob'.
-
-    Returns:
-        float: threshold minimizing |mean(per-patient TPR) - mean(per-patient TNR)|. Defaults to 0.5.
-    """
-    pos_sorted, neg_sorted = _patient_score_arrays(pt_results)
-    scored = [arr for arr in pos_sorted + neg_sorted if arr.size > 0]
-    if not scored:
-        return 0.5
-
-    thresholds = np.unique(np.concatenate(scored))
-
-    tpr_sum = np.zeros(thresholds.size)
-    tnr_sum = np.zeros(thresholds.size)
-    n_tpr = n_tnr = 0
-    for pos, neg in zip(pos_sorted, neg_sorted):
-        if pos.size > 0:
-            # predicted positive == score >= threshold
-            tpr_sum += (pos.size - np.searchsorted(pos, thresholds, side='left')) / pos.size
-            n_tpr += 1
-        if neg.size > 0:
-            # predicted negative == score < threshold
-            tnr_sum += np.searchsorted(neg, thresholds, side='left') / neg.size
-            n_tnr += 1
-
-    if n_tpr == 0 or n_tnr == 0:
-        return 0.5
-
-    gaps = np.abs(tpr_sum / n_tpr - tnr_sum / n_tnr)
-    return float(thresholds[int(np.argmin(gaps))])
 
 
 def plot_model_metrics(df, get_model_feature, window_widths,
@@ -446,7 +446,8 @@ def plot_model_metrics(df, get_model_feature, window_widths,
     if swarmcolors is None:
         swarmcolors = ['#808080'] * len(window_widths)
 
-    reg_results = pd.DataFrame(columns=['Window', 'AUROC', 'BA', 'TPR', 'TNR', 'EER_Threshold'])
+    reg_results = pd.DataFrame(columns=['Window', 'AUROC', 'BA', 'TPR', 'TNR',
+                                        'EER_Threshold_Mean', 'EER_Threshold_Min', 'EER_Threshold_Max'])
     for i, window_width in tqdm(enumerate(window_widths), total=len(window_widths)):
         model_feature = get_model_feature(window_width)
         model_df = df.dropna(subset=[model_feature], how='any').groupby(['pt_id', 'days_since_dbs']).head(1).reset_index(drop=True)
@@ -457,10 +458,8 @@ def plot_model_metrics(df, get_model_feature, window_widths,
             colors=list(COL_PAL.values()),
         )
 
-        # Derive a single threshold at the average per-patient equal error rate (EER)
-        eer_threshold = _per_patient_eer_threshold(pt_results)
-
-        tprs, tnrs = _per_patient_rates_at_threshold(pt_results, eer_threshold)
+        pt_thresholds = [r['threshold'] for r in pt_results.values() if 'threshold' in r]
+        tprs, tnrs = per_patient_rates(pt_results)
         tprs = [tp for tp in tprs if not np.isnan(tp)]
         tnrs = [tnr for tnr in tnrs if not np.isnan(tnr)]
         mean_tpr = np.mean(tprs)
@@ -468,10 +467,9 @@ def plot_model_metrics(df, get_model_feature, window_widths,
 
         all_y_true, all_y_prob, all_y_pred, all_weights = [], [], [], []
         for pt_result in pt_results.values():
-            if 'y_true' not in pt_result or 'y_prob' not in pt_result:
+            if 'y_pred' not in pt_result:
                 continue
-            y_true, y_prob = pt_result['y_true'], pt_result['y_prob']
-            y_pred = (np.array(y_prob) >= eer_threshold).astype(int)
+            y_true, y_prob, y_pred = pt_result['y_true'], pt_result['y_prob'], pt_result['y_pred']
             all_y_true.extend(y_true)
             all_y_prob.extend(y_prob)
             all_y_pred.extend(y_pred)
@@ -508,15 +506,17 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         print('-' * 100)
         print('WEIGHTED BY DAY')
         print(f'Window Width: {window_width} days, AUC: {roc_auc:.3g}, '
-              f'BA: {balanced_acc_by_day:.3g}, TPR: {avg_tpr_by_day:.3g}, TNR: {avg_tnr_by_day:.3g}, EER threshold: -')
+              f'BA: {balanced_acc_by_day:.3g}, TPR: {avg_tpr_by_day:.3g}, TNR: {avg_tnr_by_day:.3g}')
         print('-' * 100)
         print('WEIGHTED BY PATIENT')
         print(f'Window Width: {window_width} days, AUC: {weighted_auc_score:.3g}, '
-              f'BA: {weighted_balanced_acc:.3g}, TPR: {mean_tpr:.3g}, TNR: {mean_tnr:.3g}, EER threshold: {eer_threshold:.3g}')
+              f'BA: {weighted_balanced_acc:.3g}, TPR: {mean_tpr:.3g}, TNR: {mean_tnr:.3g}, '
+              f'EER thresholds: {np.mean(pt_thresholds):.3g} [{np.min(pt_thresholds):.3g}, {np.max(pt_thresholds):.3g}]')
         print()
 
         reg_results.loc[len(reg_results)] = [
-            window_width, roc_auc, balanced_acc_by_day, overall_tpr, overall_tnr, eer_threshold
+            window_width, roc_auc, balanced_acc_by_day, overall_tpr, overall_tnr,
+            np.mean(pt_thresholds), np.min(pt_thresholds), np.max(pt_thresholds)
         ]
         if window_width in [1, 14]:
             # show roc curve
