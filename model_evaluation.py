@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from joblib import Parallel, delayed
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, roc_curve, auc
 from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.linear_model import LogisticRegression
@@ -422,7 +423,7 @@ def per_patient_rates(pt_results):
 
 def plot_model_metrics(df, get_model_feature, window_widths,
                        boxplot_axs, roc_ax, conf_mat_axs,
-                       boxcolors=None, swarmcolors=None):
+                       boxcolors=None, swarmcolors=None, calc_p=False):
     """
     Plots model evaluation metrics (TPR, TNR, ROC curve, confusion matrix) for different window widths.
 
@@ -435,6 +436,7 @@ def plot_model_metrics(df, get_model_feature, window_widths,
     - conf_mat_axs: Tuple of two Matplotlib axes for plotting confusion matrices for specific window widths.
     - boxcolors: List of colors for the boxplots (default is None, which will use the default color).
     - swarmcolors: List of colors for the swarmplot points (default is ['#808080'] * len(window_widths)).
+    - calc_p: Boolean indicating whether to calculate p-values (default is False).
 
     Returns:
     - boxplot_axs: Updated axes with TPR and TNR boxplots.
@@ -447,7 +449,7 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         swarmcolors = ['#808080'] * len(window_widths)
 
     reg_results = pd.DataFrame(columns=['Window', 'AUROC', 'BA', 'TPR', 'TNR',
-                                        'EER_Threshold_Mean', 'EER_Threshold_Min', 'EER_Threshold_Max'])
+                                        'EER_Threshold_Mean', 'EER_Threshold_Min', 'EER_Threshold_Max', 'p'])
     for i, window_width in tqdm(enumerate(window_widths), total=len(window_widths)):
         model_feature = get_model_feature(window_width)
         model_df = df.dropna(subset=[model_feature], how='any').groupby(['pt_id', 'days_since_dbs']).head(1).reset_index(drop=True)
@@ -514,10 +516,29 @@ def plot_model_metrics(df, get_model_feature, window_widths,
               f'EER thresholds: {np.mean(pt_thresholds):.3g} [{np.min(pt_thresholds):.3g}, {np.max(pt_thresholds):.3g}]')
         print()
 
+        if calc_p:
+            auroc_dist = []
+
+            def run_shuffle(_):
+                shuffle_results = leave_one_patient_out_logistic_regression(model_df, [model_feature], shuffle='true')
+                return shuffle_results[0]['AUC']
+
+            n = 10000
+            n_jobs = -1  # uses all available cores
+            results = Parallel(n_jobs=n_jobs)(
+                delayed(run_shuffle)(_) for _ in tqdm(range(n), desc=f'Shuffling labels for window width {window_width} days')
+            )
+            auroc_dist = np.array(results)
+
+            p = np.sum(auroc_dist >= roc_auc) / len(auroc_dist)
+        else:
+            p = np.nan
+
         reg_results.loc[len(reg_results)] = [
             window_width, roc_auc, balanced_acc_by_day, overall_tpr, overall_tnr,
-            np.mean(pt_thresholds), np.min(pt_thresholds), np.max(pt_thresholds)
+            np.mean(pt_thresholds), np.min(pt_thresholds), np.max(pt_thresholds), p
         ]
+
         if window_width in [1, 14]:
             # show roc curve
             roc_ax.plot([0, 1], [0, 1], linestyle='--', color='black')
