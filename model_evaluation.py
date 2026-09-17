@@ -571,9 +571,7 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         ylabel='True Negative Rate', title='TNR vs. Window Width', ylim=[0, 1]
     )
 
-    reg_results.to_excel(f'tables/{'_'.join(model_feature.split('_')[:-3])}_windowed_stats.xlsx', index=False)
-
-    return boxplot_axs, roc_ax, conf_mat_axs
+    return boxplot_axs, roc_ax, conf_mat_axs, reg_results
 
 def delta_model(df, features):
     for id in df['pt_id'].unique():
