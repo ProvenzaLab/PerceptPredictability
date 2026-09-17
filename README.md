@@ -169,9 +169,7 @@ These include:
 
 ## Data availability
 
-Deidentified participant-level neural and clinical datasets supporting these findings will be made publicly available through the Data Archive for the BRAIN Initiative (DABI) registry.
-
-> Status: the DABI accession link is pending and will be added here upon publication. In the interim, please contact the corresponding author regarding data access.
+Deidentified participant level neural and clinical datasets that support the findings of this study are available upon request via this [DABI registry](https://dabi.loni.usc.edu/projects/AZB3H0HMN433/).
 
 ---
 
