@@ -218,35 +218,25 @@ Built with PyQt, installable as an executable on Windows and macOS, handles mult
 If you use this code, please cite the associated manuscript. Jeffrey Zhou and Rick R. Hanish contributed equally.
 
 ```bibtex
-@Unpublished{Zhou2026,
-  title   = {Chronic intracranial neural dynamics forecast treatment response and therapeutic engagement during deep brain stimulation for OCD},
-  author  = {Zhou, Jeffrey and
-    Hanish, Rick R. and
-    Merk, Timon and
-    Bao, Royal and
-    Soubra, Sarah and
-    Allam, Anthony K. and
-    Reddy, Sandesh and
-    Gates, Victoria R. and
-    Allam, Vincent and
-    Libowitz, Mark and
-    Paulo, Danika L. and
-    Katlowitz, Kalman A. and
-    Hayden, Benjamin Y. and
-    Mickey, Brian J. and
-    Kious, Brent M. and
-    Herron, Jeffrey A. and
-    Fr{\k{a}}czek, Tomasz M. and
-    Shofty, Ben and
-    Patel, Ankit B. and
-    Heilbronner, Sarah R. and
-    Storch, Eric A. and
-    Goodman, Wayne K. and
-    Sheth, Sameer A. and
-    Provenza, Nicole R.},
-  year    = {2026},
-  note    = {Under Review}
+@UNPUBLISHED{Zhou2026-zt,
+  title       = "Chronic intracranial neural dynamics forecast treatment
+                 response and therapeutic engagement during deep brain
+                 stimulation for {OCD}",
+  author      = "Zhou, Jeffrey and Hanish, Rick R and Merk, Timon and Bao,
+                 Royal and Soubra, Sarah and Allam, Anthony K and Reddy,
+                 Sandesh and Gates, Victoria R and Allam, Vincent and Libowitz,
+                 Mark and Paulo, Danika L and Katlowitz, Kalman A and Mickey,
+                 Brian J and Kious, Brent M and Herron, Jeffrey A and Fr{\k
+                 a}czek, Tomasz M and Shofty, Ben and Patel, Ankit B and
+                 Heilbronner, Sarah R and Storch, Eric A and Goodman, Wayne K
+                 and Sheth, Sameer A and Provenza, Nicole R",
+  journal     = "medRxiv",
+  month       =  sep,
+  year        =  2026,
+  copyright   = "http://creativecommons.org/licenses/by-nc/4.0/",
+  language    = "en"
 }
+
 ```
 
 Please also cite the prior work that introduced the neural predictability biomarker:
