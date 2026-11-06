@@ -218,52 +218,52 @@ Built with PyQt, installable as an executable on Windows and macOS, handles mult
 If you use this code, please cite the associated manuscript. Jeffrey Zhou and Rick R. Hanish contributed equally.
 
 ```bibtex
-@UNPUBLISHED{Zhou2026-zt,
-  title       = "Chronic intracranial neural dynamics forecast treatment
-                 response and therapeutic engagement during deep brain
-                 stimulation for {OCD}",
-  author      = "Zhou, Jeffrey and Hanish, Rick R and Merk, Timon and Bao,
-                 Royal and Soubra, Sarah and Allam, Anthony K and Reddy,
-                 Sandesh and Gates, Victoria R and Allam, Vincent and Libowitz,
-                 Mark and Paulo, Danika L and Katlowitz, Kalman A and Mickey,
-                 Brian J and Kious, Brent M and Herron, Jeffrey A and Fr{\k
-                 a}czek, Tomasz M and Shofty, Ben and Patel, Ankit B and
-                 Heilbronner, Sarah R and Storch, Eric A and Goodman, Wayne K
-                 and Sheth, Sameer A and Provenza, Nicole R",
-  journal     = "medRxiv",
-  month       =  sep,
-  year        =  2026,
-  copyright   = "http://creativecommons.org/licenses/by-nc/4.0/",
-  language    = "en"
+@ARTICLE{Zhou2026-zt,
+  title     = "Chronic intracranial neural dynamics forecast treatment
+               response and therapeutic engagement during deep brain
+               stimulation for {OCD}",
+  author    = "Zhou, Jeffrey and Hanish, Rick R and Merk, Timon and Bao,
+               Royal and Soubra, Sarah and Allam, Anthony K and Reddy,
+               Sandesh and Gates, Victoria R and Allam, Vincent and Libowitz,
+               Mark and Paulo, Danika L and Katlowitz, Kalman A and Mickey,
+               Brian J and Kious, Brent M and Herron, Jeffrey A and
+               Fr{\k{a}}czek, Tomasz M and Shofty, Ben and Patel, Ankit B and
+               Heilbronner, Sarah R and Storch, Eric A and Goodman, Wayne K
+               and Sheth, Sameer A and Provenza, Nicole R",
+  journal   = "medRxiv",
+  note      = "Preprint",
+  month     =  sep,
+  year      =  2026,
+  doi       = {10.64898/2026.09.18.26363320},
+  url       = {https://doi.org/10.64898/2026.09.18.26363320},
 }
-
 ```
 
 Please also cite the prior work that introduced the neural predictability biomarker:
 
 ```bibtex
 @Article{Provenza2024,
-    author  = {Provenza, Nicole R. and Reddy, Sandesh and Allam, Anthony K. and
-               Rajesh, Sameer V. and Diab, Nabeel and Reyes, Gabriel and
-               Caston, Rose M. and Katlowitz, Kalman A. and Gandhi, Ajay D. and
-               Bechtold, Raphael A. and Dang, Huy Q. and Najera, Ricardo A. and
-               Giridharan, Nisha and Kabotyanski, Katherine E. and Momin, Faiza and
-               Hasen, Mohammed and Banks, Garrett P. and Mickey, Brian J. and
-               Kious, Brent M. and Shofty, Ben and Hayden, Benjamin Y. and
-               Herron, Jeffrey A. and Storch, Eric A. and Patel, Ankit B. and
-               Goodman, Wayne K. and Sheth, Sameer A.},
-    title   = {Disruption of neural periodicity predicts clinical response after
-                deep brain stimulation for obsessive-compulsive disorder},
-    journal = {Nature Medicine},
-    year    = {2024},
-    month   = {Oct},
-    day     = {01},
-    volume  = {30},
-    number  = {10},
-    pages   = {3004-3014},
-    issn    = {1546-170X},
-    doi     = {10.1038/s41591-024-03125-0},
-    url     = {https://doi.org/10.1038/s41591-024-03125-0}
+  author  = {Provenza, Nicole R. and Reddy, Sandesh and Allam, Anthony K. and
+              Rajesh, Sameer V. and Diab, Nabeel and Reyes, Gabriel and
+              Caston, Rose M. and Katlowitz, Kalman A. and Gandhi, Ajay D. and
+              Bechtold, Raphael A. and Dang, Huy Q. and Najera, Ricardo A. and
+              Giridharan, Nisha and Kabotyanski, Katherine E. and Momin, Faiza and
+              Hasen, Mohammed and Banks, Garrett P. and Mickey, Brian J. and
+              Kious, Brent M. and Shofty, Ben and Hayden, Benjamin Y. and
+              Herron, Jeffrey A. and Storch, Eric A. and Patel, Ankit B. and
+              Goodman, Wayne K. and Sheth, Sameer A.},
+  title   = {Disruption of neural periodicity predicts clinical response after
+              deep brain stimulation for obsessive-compulsive disorder},
+  journal = {Nature Medicine},
+  year    = {2024},
+  month   = {Oct},
+  day     = {01},
+  volume  = {30},
+  number  = {10},
+  pages   = {3004-3014},
+  issn    = {1546-170X},
+  doi     = {10.1038/s41591-024-03125-0},
+  url     = {https://doi.org/10.1038/s41591-024-03125-0}
 }
 ```
 
