@@ -218,7 +218,7 @@ Built with PyQt, installable as an executable on Windows and macOS, handles mult
 If you use this code, please cite the associated manuscript. Jeffrey Zhou and Rick R. Hanish contributed equally.
 
 ```bibtex
-@ARTICLE{Zhou2026-zt,
+@ARTICLE{Zhou2026,
   title     = "Chronic intracranial neural dynamics forecast treatment
                response and therapeutic engagement during deep brain
                stimulation for {OCD}",
