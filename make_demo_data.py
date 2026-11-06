@@ -48,7 +48,7 @@ PATIENTS = [
         'pt_id': 'DEMO001', 'status': 'Responder', 'site': 'BNST', 'acrophase_h': 15.0, 'phi_offset': 0.02,
         'stim_mA': 5.0, 'pulse_width': 90.0, 'base_power': 950.0,
         'states': [(-14, 'Pre-DBS'), (0, 'Disinhibited'), (3, 'Transition'), (9, 'Responder')],
-        'ybocs': [(-30, 38), (-1, 37), (7, 29), (14, 22), (21, 20), (28, 19), (35, 18)],
+        'ybocs': [(-30, 38), (-1, 37), (7, 26), (14, 22), (21, 20), (28, 19), (35, 18)],
     },
     {
         'pt_id': 'DEMO002', 'status': 'Responder', 'site': 'VC/VS', 'acrophase_h': 13.0, 'phi_offset': -0.02,
