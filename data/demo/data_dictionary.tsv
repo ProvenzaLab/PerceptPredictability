@@ -1,0 +1,43 @@
+file	column	dtype	units	description
+lfp_raw	pt_id	object		Patient identifier
+lfp_raw	time_bin_time	object	HH:MM:SS	Time of day of the 10-minute BrainSense Timeline sample, rounded down to the previous 10-minute interval in the patient's home time zone
+lfp_raw	days_since_dbs	int64	days	Days since DBS initiation (negative values are pre-DBS)
+lfp_raw	lfp_left_raw	float64	a.u.	BrainSense Timeline LFP power in the sensing band (left hemisphere), 10-minute average as reported by the device
+lfp_raw	stim_left	float64	mA	Stimulation amplitude (left hemisphere)
+lfp_raw	lfp_right_raw	float64	a.u.	BrainSense Timeline LFP power in the sensing band (right hemisphere), 10-minute average as reported by the device
+lfp_raw	stim_right	float64	mA	Stimulation amplitude (right hemisphere)
+lfp_raw	left_lead_location	object		DBS target region (left lead)
+lfp_raw	right_lead_location	object		DBS target region (right lead)
+lfp_raw	left_lead_model	object		Medtronic lead model (left lead)
+lfp_raw	right_lead_model	object		Medtronic lead model (right lead)
+lfp_raw	active_left_freq	float64	Hz	Stimulation frequency of the active group (left hemisphere)
+lfp_raw	active_left_pulse_width	float64	µs	Stimulation pulse width of the active group (left hemisphere)
+lfp_raw	active_left_suspend_amplitude	float64	mA	Amplitude applied when stimulation is suspended (left hemisphere)
+lfp_raw	active_left_stim_cathodes	object		Active cathode contacts, semicolon-separated (left hemisphere)
+lfp_raw	active_left_stim_anodes	object		Active anode contacts, semicolon-separated (left hemisphere)
+lfp_raw	active_left_sensing_contacts	object		Bipolar sensing contact pair (left hemisphere)
+lfp_raw	active_left_sensing_frequency	float64	Hz	Center frequency of the sensed band, +/- 2.5 Hz (left hemisphere)
+lfp_raw	active_right_freq	float64	Hz	Stimulation frequency of the active group (right hemisphere)
+lfp_raw	active_right_pulse_width	float64	µs	Stimulation pulse width of the active group (right hemisphere)
+lfp_raw	active_right_suspend_amplitude	float64	mA	Amplitude applied when stimulation is suspended (right hemisphere)
+lfp_raw	active_right_stim_cathodes	object		Active cathode contacts, semicolon-separated (right hemisphere)
+lfp_raw	active_right_stim_anodes	object		Active anode contacts, semicolon-separated (right hemisphere)
+lfp_raw	active_right_sensing_contacts	object		Bipolar sensing contact pair (right hemisphere)
+lfp_raw	active_right_sensing_frequency	float64	Hz	Center frequency of the sensed band, +/- 2.5 Hz (right hemisphere)
+lfp_derived	pt_id	object		Patient identifier
+lfp_derived	time_bin_time	object	HH:MM:SS	Time of day of the 10-minute BrainSense Timeline sample, rounded down to the previous 10-minute interval in the patient's home time zone
+lfp_derived	days_since_dbs	int64	days	Days since DBS initiation (negative values are pre-DBS)
+lfp_derived	lfp_left_OvER_interpolate_z_scored	float64	SD	LFP power after overvoltage event removal, PCHIP interpolation of gaps up to 2 h, and within-day z-scoring (left hemisphere)
+lfp_derived	lfp_right_OvER_interpolate_z_scored	float64	SD	LFP power after overvoltage event removal, PCHIP interpolation of gaps up to 2 h, and within-day z-scoring (right hemisphere)
+lfp_derived	contig_right	Int64		Index of the contiguous recording segment within patient (right hemisphere)
+lfp_derived	contig_left	Int64		Index of the contiguous recording segment within patient (left hemisphere)
+lfp_derived	lfp_left_OvER_interpolate_z_scored_lag_1	float64	SD	Previous sample (t - 10 min) of the z-scored LFP power; LinAR-1 predictor (left hemisphere)
+lfp_derived	lfp_right_OvER_interpolate_z_scored_lag_1	float64	SD	Previous sample (t - 10 min) of the z-scored LFP power; LinAR-1 predictor (right hemisphere)
+lfp_derived	most_recent_YBOCS_value	float64	Y-BOCS points (0-40)	Most recent Y-BOCS score at or before this sample
+lfp_derived	state_label_str	object		Clinical state label (see Methods)
+lfp_derived	response_status	object		Patient-level DBS outcome: Responder, Non-Responder, Unknown/Undetermined
+ybocs	pt_id	object		Patient identifier
+ybocs	YBOCS	float64	Y-BOCS points (0-40)	Y-BOCS total score
+ybocs	days_since_dbs	float64	days	Days since DBS initiation (negative values are pre-DBS)
+ybocs	is_clinical_response	bool		True if YBOCS_reduction >= 0.35
+ybocs	YBOCS_reduction	float64	fraction	Fractional reduction from baseline Y-BOCS (positive = improvement)

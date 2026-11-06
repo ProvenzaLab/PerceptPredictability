@@ -6,4 +6,5 @@ tables/*
 !tables/.gitkeep
 data/*
 !data/.gitkeep
+!data/demo/
 *.xlsx

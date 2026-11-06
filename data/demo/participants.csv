@@ -1,0 +1,5 @@
+Subject ID,Diagnosis,Sex,Implant Region (Left | Right),Age at Time of Surgery,Response Status,Baseline Y-BOCS,Final Y-BOCS,Left Lead Model,Right Lead Model
+DEMO001,Synthetic demo patient (not a real participant),n/a,BNST | BNST,n/a,Responder,38,18,LEAD_B33015,LEAD_B33015
+DEMO002,Synthetic demo patient (not a real participant),n/a,VC/VS | VC/VS,n/a,Responder,36,32,LEAD_3387,LEAD_3387
+DEMO003,Synthetic demo patient (not a real participant),n/a,BNST | BNST,n/a,Non-Responder,39,36,LEAD_B33015,LEAD_B33015
+DEMO004,Synthetic demo patient (not a real participant),n/a,VC/VS | VC/VS,n/a,Non-Responder,35,31,LEAD_3387,LEAD_3387

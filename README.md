@@ -7,8 +7,8 @@ Code and analysis notebooks supporting the manuscript titled:
 This repository contains the analysis code used to reproduce the main-text figures, supplemental figures, and supplemental tables for this study. The project investigates whether chronic neural recordings from sensing-enabled deep brain stimulation (DBS) can provide objective biomarkers of therapeutic engagement and treatment response in treatment-resistant obsessive-compulsive disorder (OCD).
 
 <p align="left">
-  <img src="https://img.shields.io/badge/python-3.13-blue" alt="Python 3.12+">
-  <img src="https://img.shields.io/badge/status-in_preparation-orange" alt="Status: in preparation">
+  <img src="https://img.shields.io/badge/python-3.13-blue" alt="Python 3.13">
+  <img src="https://img.shields.io/badge/status-Under_Review-orange" alt="Status: under review">
 </p>
 
 ---
@@ -195,17 +195,30 @@ If you use this code, please cite the associated manuscript:
 
 ```bibtex
 @Unpublished{Zhou2026,
-  title   = {Longitudinal neural dynamics forecast treatment response and
-             therapeutic engagement during deep brain stimulation for OCD},
-  author  = {Zhou, Jeffrey and Hanish, Rick R. and Merk, Timon and
-             Soubra, Sarah and Allam, Anthony K. and Reddy, Sandesh and
-             Bao, Royal and Fraczek, Tomasz M. and Gates, Victoria R. and
-             Libowitz, Mark and Paulo, Danika L. and Katlowitz, Kalman A. and
-             Mickey, Brian J. and Kious, Brent M. and Herron, Jeffrey A. and
-             Shofty, Ben and Patel, Ankit B. and Storch, Eric A. and
-             Goodman, Wayne K. and Sheth, Sameer A. and Provenza, Nicole R.},
+  title   = {Chronic intracranial neural dynamics forecast treatment response and therapeutic engagement during deep brain stimulation for OCD},
+  author  = {Zhou, Jeffrey and
+    Hanish, Rick R. and
+    Merk, Timon and
+    Soubra, Sarah and
+    Allam, Anthony K. and
+    Reddy, Sandesh and
+    Bao, Royal and
+    Fraczek, Tomasz M. and
+    Gates, Victoria R. and
+    Libowitz, Mark and
+    Paulo, Danika L. and
+    Katlowitz, Kalman A. and
+    Mickey, Brian J. and
+    Kious, Brent M. and
+    Herron, Jeffrey A. and
+    Shofty, Ben and
+    Patel, Ankit B. and
+    Storch, Eric A. and
+    Goodman, Wayne K. and
+    Sheth, Sameer A. and
+    Provenza, Nicole R.},
   year    = {2026},
-  note    = {Manuscript in preparation}
+  note    = {Under Review}
 }
 ```
 

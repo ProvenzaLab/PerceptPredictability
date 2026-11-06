@@ -161,8 +161,10 @@ def leave_one_patient_out_logistic_regression(
         if len(feature_cols) == 1:
             logreg = pt_results["model"].named_steps["logreg"]
             w0, w1 = float(logreg.intercept_[0]), float(logreg.coef_[0][0])
+            # A cutoff of exactly 0 or 1 has no finite position in feature units
             pt_results["feature_boundary"] = (
-                (float(np.log(pt_threshold / (1 - pt_threshold))) - w0) / w1 if w1 else np.nan
+                (float(np.log(pt_threshold / (1 - pt_threshold))) - w0) / w1
+                if w1 and 0 < pt_threshold < 1 else np.nan
             )
 
         # Per-patient results
@@ -448,8 +450,8 @@ def plot_model_metrics(df, get_model_feature, window_widths,
     if swarmcolors is None:
         swarmcolors = ['#808080'] * len(window_widths)
 
-    reg_results = pd.DataFrame(columns=['Window', 'AUROC', 'BA', 'TPR', 'TNR',
-                                        'EER_Threshold_Mean', 'EER_Threshold_Min', 'EER_Threshold_Max', 'p'])
+    reg_results = pd.DataFrame(columns=['Weighting', 'Window', 'AUROC', 'BA', 'TPR', 'TNR',
+                                        'Threshold (mean)', 'Threshold (min)', 'Threshold (max)', 'p'])
     for i, window_width in tqdm(enumerate(window_widths), total=len(window_widths)):
         model_feature = get_model_feature(window_width)
         model_df = df.dropna(subset=[model_feature], how='any').groupby(['pt_id', 'days_since_dbs']).head(1).reset_index(drop=True)
@@ -534,9 +536,15 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         else:
             p = np.nan
 
+        # p is computed against the by-day AUC, so it only applies to the by-day row
         reg_results.loc[len(reg_results)] = [
-            window_width, roc_auc, balanced_acc_by_day, overall_tpr, overall_tnr,
-            np.mean(pt_thresholds), np.min(pt_thresholds), np.max(pt_thresholds), p
+            'Weighted by Day', window_width, roc_auc, balanced_acc_by_day,
+            avg_tpr_by_day, avg_tnr_by_day, np.nan, np.nan, np.nan, p
+        ]
+        reg_results.loc[len(reg_results)] = [
+            'Weighted by Patient', window_width, weighted_auc_score, weighted_balanced_acc,
+            mean_tpr, mean_tnr,
+            np.mean(pt_thresholds), np.min(pt_thresholds), np.max(pt_thresholds), np.nan
         ]
 
         if window_width in [1, 14]:
@@ -570,6 +578,9 @@ def plot_model_metrics(df, get_model_feature, window_widths,
         xticks=range(len(window_widths)), xticklabels=window_widths, xlabel='Window Width (days)',
         ylabel='True Negative Rate', title='TNR vs. Window Width', ylim=[0, 1]
     )
+
+    if not calc_p:
+        reg_results = reg_results.drop(columns='p')
 
     return boxplot_axs, roc_ax, conf_mat_axs, reg_results
 
